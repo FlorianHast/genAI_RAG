@@ -142,14 +142,10 @@ def main():
     print("\nLocal RAG Chatbot")
     print("Type 'end' to exit.")
 
-    print("\nLoading embedding model...")
     model = SentenceTransformer(MODEL_NAME)
 
     chunks = load_chunks()
     embeddings = np.load(EMBEDDINGS_PATH)
-
-    print(f"Loaded chunks: {len(chunks)}")
-    print(f"Loaded embeddings: {embeddings.shape}")
 
     if len(chunks) != len(embeddings):
         raise ValueError(
@@ -182,11 +178,6 @@ def main():
             chunks,
         )
 
-        print("\n--- Retrieved Context ---")
-
-        for index, score, chunk in retrieved_chunks:
-            print(f"\nChunk {index + 1} | Score: {score:.4f}")
-            print(chunk[:500])
 
         answer = generate_answer(
             query,
