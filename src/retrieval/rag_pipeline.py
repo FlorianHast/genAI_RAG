@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 
 import numpy as np
 import requests
@@ -138,9 +139,46 @@ Answer:"""
     return response.json()["response"].strip()
 
 
-def main():
-    print("\nLocal RAG Chatbot")
-    print("Type 'end' to exit.")
+def process_question(query, model, embeddings, chunks, memory):
+    """Process one question and return the answer and sources."""
+
+    retrieval_query = build_retrieval_query(
+        query,
+        memory,
+    )
+
+    retrieved_chunks = retrieve(
+        retrieval_query,
+        model,
+        embeddings,
+        chunks,
+    )
+
+    answer = generate_answer(
+        query,
+        retrieved_chunks,
+        memory,
+    )
+
+    sources = []
+
+    for _, _, chunk in retrieved_chunks:
+        source = extract_source(chunk)
+
+        if source not in sources:
+            sources.append(source)
+
+    memory.append((query, answer))
+
+    return answer, sources
+
+
+def run_chatbot(demo=False):
+    if demo:
+        print("\nLocal RAG Chatbot - DEMO")
+    else:
+        print("\nLocal RAG Chatbot")
+        print("Type 'end' to exit.")
 
     model = SentenceTransformer(MODEL_NAME)
 
@@ -155,50 +193,86 @@ def main():
 
     memory = []
 
-    while True:
-        query = input("\nYou: ").strip()
+    demo_questions = [
+        "What is Isolation Forest?",
+        "Why is it useful?",
+        "How does it detect anomalies?",
+        "What is the capital of France?",
+    ]
 
-        if query.lower() == "end":
-            print("\nEnding conversation.")
-            break
+    if demo:
+        questions = demo_questions
+    else:
+        questions = None
 
-        if not query:
-            print("Please enter a question.")
-            continue
+    if demo:
+        for number, query in enumerate(questions, start=1):
+            print(f"\n{'=' * 60}")
+            print(f"Question {number}:")
+            print(query)
 
-        retrieval_query = build_retrieval_query(
-            query,
-            memory,
-        )
+            answer, sources = process_question(
+                query,
+                model,
+                embeddings,
+                chunks,
+                memory,
+            )
 
-        retrieved_chunks = retrieve(
-            retrieval_query,
-            model,
-            embeddings,
-            chunks,
-        )
+            print("\nAssistant:")
+            print(answer)
+
+            print("\nSources:")
+
+            for source in sources:
+                print(f"- {source}")
+
+        print(f"\n{'=' * 60}")
+        print("Demo completed.")
+
+    else:
+        while True:
+            query = input("\nYou: ").strip()
+
+            if query.lower() == "end":
+                print("\nEnding conversation.")
+                break
+
+            if not query:
+                print("Please enter a question.")
+                continue
+
+            answer, sources = process_question(
+                query,
+                model,
+                embeddings,
+                chunks,
+                memory,
+            )
+
+            print("\nAssistant:")
+            print(answer)
+
+            print("\nSources:")
+
+            for source in sources:
+                print(f"- {source}")
 
 
-        answer = generate_answer(
-            query,
-            retrieved_chunks,
-            memory,
-        )
+def main():
+    parser = argparse.ArgumentParser(
+        description="Local RAG chatbot for scikit-learn documentation."
+    )
 
-        sources = []
-        for _, _, chunk in retrieved_chunks:
-            source = extract_source(chunk)
-            if source not in sources:
-                sources.append(source)
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the predefined four-question demo.",
+    )
 
-        print("\nAssistant:")
-        print(answer)
+    args = parser.parse_args()
 
-        print("\nSources:")
-        for source in sources:
-            print(f"- {source}")
-
-        memory.append((query, answer))
+    run_chatbot(demo=args.demo)
 
 
 if __name__ == "__main__":
