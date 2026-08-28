@@ -4,8 +4,20 @@ import requests
 from bs4 import BeautifulSoup
 
 
-URL = "https://scikit-learn.org/stable/getting_started.html"
-OUTPUT_PATH = Path("data/raw/scikit_learn_getting_started.txt")
+DOCUMENTS = {
+    "scikit_learn_getting_started": (
+        "https://scikit-learn.org/stable/getting_started.html"
+    ),
+    "scikit_learn_isolation_forest": (
+        "https://scikit-learn.org/stable/modules/generated/"
+        "sklearn.ensemble.IsolationForest.html"
+    ),
+    "scikit_learn_outlier_detection": (
+        "https://scikit-learn.org/stable/modules/outlier_detection.html"
+    ),
+}
+
+OUTPUT_DIR = Path("data/raw")
 
 
 def load_webpage(url: str) -> str:
@@ -22,15 +34,18 @@ def load_webpage(url: str) -> str:
     main = soup.select_one("main article")
 
     if main is None:
-        raise ValueError("Could not find the main documentation article.")
+        raise ValueError(
+            f"Could not find the main documentation article: {url}"
+        )
 
     for element in main.select("script, style, .headerlink"):
         element.decompose()
 
     parts = []
 
-    for element in main.find_all(["h1", "h2", "h3", "h4", "p", "pre", "li"]):
-
+    for element in main.find_all(
+        ["h1", "h2", "h3", "h4", "p", "pre", "li"]
+    ):
         if element.name == "pre":
             text = element.get_text("", strip=False).strip()
 
@@ -58,9 +73,18 @@ def save_document(text: str, output_path: Path) -> None:
     output_path.write_text(text, encoding="utf-8")
 
 
-if __name__ == "__main__":
-    text = load_webpage(URL)
-    save_document(text, OUTPUT_PATH)
+def main() -> None:
+    for name, url in DOCUMENTS.items():
+        print(f"\nDownloading: {url}")
 
-    print(f"Downloaded characters: {len(text)}")
-    print(f"Saved document: {OUTPUT_PATH}")
+        text = load_webpage(url)
+
+        output_path = OUTPUT_DIR / f"{name}.txt"
+        save_document(text, output_path)
+
+        print(f"Downloaded characters: {len(text)}")
+        print(f"Saved document: {output_path}")
+
+
+if __name__ == "__main__":
+    main()

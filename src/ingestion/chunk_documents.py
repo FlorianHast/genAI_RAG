@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-INPUT_PATH = Path("data/raw/scikit_learn_getting_started.txt")
+INPUT_DIR = Path("data/raw")
 OUTPUT_PATH = Path("data/processed/scikit_learn_chunks.txt")
 
 CHUNK_SIZE = 1000
@@ -18,7 +18,7 @@ def split_large_paragraph(
     chunk_size: int,
     chunk_overlap: int,
 ) -> list[str]:
-    """Split an oversized paragraph using sentence/line boundaries where possible."""
+    """Split an oversized paragraph using line boundaries where possible."""
 
     if len(paragraph) <= chunk_size:
         return [paragraph]
@@ -26,7 +26,6 @@ def split_large_paragraph(
     parts = []
     current = ""
 
-    # Prefer line boundaries, which helps preserve code blocks.
     segments = [
         segment.strip()
         for segment in paragraph.splitlines()
@@ -45,7 +44,6 @@ def split_large_paragraph(
             if len(segment) <= chunk_size:
                 current = segment
             else:
-                # Final fallback for a single line that is too large.
                 start = 0
 
                 while start < len(segment):
@@ -105,7 +103,6 @@ def create_chunks(
 
             chunks.append("\n\n".join(current_parts))
 
-            # Keep a small number of complete previous lines as overlap.
             overlap_parts = []
             overlap_length = 0
 
@@ -125,7 +122,6 @@ def create_chunks(
                 2 * (len(current_parts) - 1)
             )
 
-            # If overlap + new part is still too large, keep only the new part.
             if current_length > chunk_size:
                 current_parts = [part]
                 current_length = part_length
@@ -136,32 +132,57 @@ def create_chunks(
     return chunks
 
 
-def save_chunks(chunks: list[str], path: Path) -> None:
-    """Save chunks to a text file."""
+def save_chunks(
+    documents: list[tuple[str, list[str]]],
+    path: Path,
+) -> None:
+    """Save chunks from multiple documents with source metadata."""
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    chunk_index = 1
+
     with path.open("w", encoding="utf-8") as file:
-        for index, chunk in enumerate(chunks, start=1):
-            file.write(f"--- CHUNK {index} ---\n")
-            file.write(chunk)
-            file.write("\n\n")
+        for source_name, chunks in documents:
+            for chunk in chunks:
+                file.write(f"--- CHUNK {chunk_index} ---\n")
+                file.write(f"SOURCE: {source_name}\n")
+                file.write(chunk)
+                file.write("\n\n")
+
+                chunk_index += 1
 
 
-if __name__ == "__main__":
-    text = load_document(INPUT_PATH)
+def main() -> None:
+    input_files = sorted(INPUT_DIR.glob("*.txt"))
 
-    chunks = create_chunks(text)
+    if not input_files:
+        raise FileNotFoundError(
+            f"No .txt files found in {INPUT_DIR}"
+        )
 
-    save_chunks(chunks, OUTPUT_PATH)
+    documents = []
+    total_chunks = 0
 
-    print(f"Document characters: {len(text)}")
-    print(f"Created chunks: {len(chunks)}")
+    for input_path in input_files:
+        text = load_document(input_path)
+        chunks = create_chunks(text)
+
+        documents.append((input_path.name, chunks))
+        total_chunks += len(chunks)
+
+        print(f"\nSource: {input_path.name}")
+        print(f"Document characters: {len(text)}")
+        print(f"Created chunks: {len(chunks)}")
+
+    save_chunks(documents, OUTPUT_PATH)
+
+    print("\n--- Summary ---")
+    print(f"Documents processed: {len(documents)}")
+    print(f"Total chunks: {total_chunks}")
     print(f"Chunk size: {CHUNK_SIZE} characters")
     print(f"Chunk overlap: {CHUNK_OVERLAP} characters")
     print(f"Saved chunks: {OUTPUT_PATH}")
 
-    for index, chunk in enumerate(chunks, start=1):
-        print(f"\n--- Chunk {index} ({len(chunk)} characters) ---")
-        print(chunk[:150])
 
-        
+if __name__ == "__main__":
+    main()
