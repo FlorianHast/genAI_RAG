@@ -14,6 +14,7 @@ EMBEDDINGS_PATH = Path("data/processed/scikit_learn_embeddings.npy")
 
 TOP_K = 5
 MAX_MEMORY_TURNS = 5
+SIMILARITY_THRESHOLD = 0.50
 
 
 def load_chunks():
@@ -43,12 +44,16 @@ def retrieve(query, model, embeddings, chunks):
     )[0]
 
     scores = embeddings @ query_embedding
+
     top_indices = np.argsort(scores)[::-1][:TOP_K]
 
-    return [
+    results = [
         (int(index), float(scores[index]), chunks[index])
         for index in top_indices
+        if scores[index] >= SIMILARITY_THRESHOLD
     ]
+
+    return results
 
 
 def build_retrieval_query(query, memory):
