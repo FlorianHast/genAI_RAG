@@ -4,7 +4,9 @@ A local Retrieval-Augmented Generation (RAG) system that answers questions about
 
 The project demonstrates a complete RAG pipeline:
 
-**Document → Chunking → Embeddings → Retrieval → Context → Local LLM → Answer**
+```text
+Document → Chunking → Embeddings → Retrieval → Context → Local LLM → Answer
+```
 
 ## Project Overview
 
@@ -24,45 +26,44 @@ The system is designed to run locally without paid API services.
 ## Architecture
 
 ```text
-                    ┌─────────────────────┐
-                    │  Source Document    │
-                    │  scikit-learn docs  │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │   Source Document    │
+                    │  scikit-learn docs   │
+                    └──────────┬───────────┘
                                │
                                ▼
-                    ┌─────────────────────┐
-                    │      Chunking       │
-                    │  1000 chars / 150   │
-                    │      overlap        │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │      Chunking        │
+                    │  1000 chars / 150    │
+                    │      overlap         │
+                    └──────────┬───────────┘
                                │
                                ▼
-                    ┌─────────────────────┐
-                    │    Embeddings       │
-                    │ all-MiniLM-L6-v2    │
-                    │    384 dimensions   │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │     Embeddings       │
+                    │ all-MiniLM-L6-v2     │
+                    │   384 dimensions     │
+                    └──────────┬───────────┘
                                │
                                ▼
-                    ┌─────────────────────┐
-                    │   Vector Storage    │
-                    │       .npy          │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │   Vector Storage     │
+                    │       .npy           │
+                    └──────────┬───────────┘
                                │
                                │
-User Question ────────► Semantic Retrieval
+User Question ────────────────►│
+                               ▼
+                    ┌──────────────────────┐
+                    │ Semantic Retrieval   │
+                    │      Top 3 chunks    │
+                    └──────────┬───────────┘
                                │
                                ▼
-                    ┌─────────────────────┐
-                    │  Top-K Context      │
-                    │   Top 3 chunks       │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │      Ollama         │
-                    │    llama3.2:3b      │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │       Ollama         │
+                    │     llama3.2:3b      │
+                    └──────────┬───────────┘
                                │
                                ▼
                          Final Answer
@@ -112,8 +113,11 @@ genAI_RAG/
 │   └── test_retrieval.py
 │
 ├── requirements.txt
+├── README.md
 └── .gitignore
 ```
+
+> Note: `data/processed/` contains generated files and is intentionally excluded from Git.
 
 ## Installation
 
