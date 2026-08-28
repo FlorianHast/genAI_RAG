@@ -13,6 +13,7 @@ CHUNKS_PATH = Path("data/processed/scikit_learn_chunks.txt")
 EMBEDDINGS_PATH = Path("data/processed/scikit_learn_embeddings.npy")
 
 TOP_K = 3
+MAX_MEMORY_TURNS = 5
 
 
 def load_chunks():
@@ -50,23 +51,59 @@ def retrieve(query, model, embeddings, chunks):
     ]
 
 
-def generate_answer(query, retrieved_chunks):
+def build_retrieval_query(query, memory):
+    """Create a context-aware query for semantic retrieval."""
+
+    if not memory:
+        return query
+
+    previous_context = "\n".join(
+        f"User: {user_message}\nAssistant: {assistant_message}"
+        for user_message, assistant_message in memory[-2:]
+    )
+
+    return f"""Previous conversation:
+{previous_context}
+
+Current question:
+{query}"""
+
+
+def format_memory(memory):
+    if not memory:
+        return "No previous conversation."
+
+    return "\n\n".join(
+        f"User: {user_message}\nAssistant: {assistant_message}"
+        for user_message, assistant_message in memory[-MAX_MEMORY_TURNS:]
+    )
+
+
+def generate_answer(query, retrieved_chunks, memory):
     context = "\n\n".join(
         f"Context {i + 1}:\n{chunk}"
         for i, (_, _, chunk) in enumerate(retrieved_chunks)
     )
 
+    conversation_history = format_memory(memory)
+
     prompt = f"""You are a helpful assistant answering questions about scikit-learn.
 
-Use ONLY the provided context to answer the question.
+Use ONLY the provided context and previous conversation to answer the question.
 Do not use outside knowledge.
-If the answer cannot be found in the context, say:
+
+If the answer cannot be found in the provided context or previous conversation, say:
 "I cannot answer this based on the provided documentation."
 
-Context:
+Keep your answer short and clear.
+
+Previous conversation:
+{conversation_history}
+
+Retrieved context:
 {context}
 
-Question:
+Current question:
 {query}
 
 Answer:"""
@@ -87,12 +124,8 @@ Answer:"""
 
 
 def main():
-    query = input("\nEnter your question: ").strip()
-
-    if not query:
-        raise ValueError("Question cannot be empty.")
-
-    print(f"\nQuery: {query}")
+    print("\nLocal RAG Chatbot")
+    print("Type 'end' to exit.")
 
     print("\nLoading embedding model...")
     model = SentenceTransformer(MODEL_NAME)
@@ -109,26 +142,47 @@ def main():
             f"{len(embeddings)} embeddings."
         )
 
-    retrieved_chunks = retrieve(
-        query,
-        model,
-        embeddings,
-        chunks,
-    )
+    memory = []
 
-    print("\n--- Retrieved Context ---")
+    while True:
+        query = input("\nYou: ").strip()
 
-    for index, score, chunk in retrieved_chunks:
-        print(f"\nChunk {index + 1} | Score: {score:.4f}")
-        print(chunk[:500])
+        if query.lower() == "end":
+            print("\nEnding conversation.")
+            break
 
-    answer = generate_answer(
-        query,
-        retrieved_chunks,
-    )
+        if not query:
+            print("Please enter a question.")
+            continue
 
-    print("\n--- Answer ---")
-    print(answer)
+        retrieval_query = build_retrieval_query(
+            query,
+            memory,
+        )
+
+        retrieved_chunks = retrieve(
+            retrieval_query,
+            model,
+            embeddings,
+            chunks,
+        )
+
+        print("\n--- Retrieved Context ---")
+
+        for index, score, chunk in retrieved_chunks:
+            print(f"\nChunk {index + 1} | Score: {score:.4f}")
+            print(chunk[:500])
+
+        answer = generate_answer(
+            query,
+            retrieved_chunks,
+            memory,
+        )
+
+        print("\nAssistant:")
+        print(answer)
+
+        memory.append((query, answer))
 
 
 if __name__ == "__main__":

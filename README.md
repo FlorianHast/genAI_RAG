@@ -1,72 +1,101 @@
-# Local RAG System for scikit-learn Documentation
+# Local RAG Chatbot with Conversation Memory
 
-A local Retrieval-Augmented Generation (RAG) system that answers questions about scikit-learn documentation using semantic search and a locally running LLM.
+A local Retrieval-Augmented Generation (RAG) chatbot that answers questions about scikit-learn documentation using semantic search, a locally running LLM, and conversation memory.
 
-The project demonstrates a complete RAG pipeline:
+The project demonstrates a complete local RAG chatbot pipeline:
 
 ```text
-Document → Chunking → Embeddings → Retrieval → Context → Local LLM → Answer
+Document
+   ↓
+Chunking
+   ↓
+Embeddings
+   ↓
+Vector Storage
+   ↓
+Semantic Retrieval
+   ↓
+Conversation Context
+   ↓
+Local LLM
+   ↓
+Answer
 ```
 
 ## Project Overview
 
 The system uses the scikit-learn "Getting Started" documentation as its knowledge base.
 
-For a user question, the system:
+For each user question, the system:
 
-1. Loads the document chunks.
-2. Creates an embedding for the question.
-3. Compares the question embedding with the document embeddings.
-4. Retrieves the most relevant chunks.
-5. Sends the retrieved context to a local LLM.
-6. Generates an answer based only on the retrieved documentation.
+1. Loads the document chunks and embeddings.
+2. Creates an embedding for the user question.
+3. Incorporates recent conversation history when available.
+4. Retrieves the most relevant document chunks using semantic similarity.
+5. Combines the retrieved context with the conversation history.
+6. Sends the context to a locally running LLM through Ollama.
+7. Generates an answer based only on the provided documentation and conversation context.
+8. Stores the question and answer in conversation memory.
 
 The system is designed to run locally without paid API services.
 
 ## Architecture
 
 ```text
-                    ┌──────────────────────┐
-                    │   Source Document    │
-                    │  scikit-learn docs   │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │      Chunking        │
-                    │  1000 chars / 150    │
-                    │      overlap         │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │     Embeddings       │
-                    │ all-MiniLM-L6-v2     │
-                    │   384 dimensions     │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │   Vector Storage     │
-                    │       .npy           │
-                    └──────────┬───────────┘
-                               │
-                               │
-User Question ────────────────►│
-                               ▼
-                    ┌──────────────────────┐
-                    │ Semantic Retrieval   │
-                    │      Top 3 chunks    │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │       Ollama         │
-                    │     llama3.2:3b      │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                         Final Answer
+                    ┌─────────────────────────────┐
+                    │      Source Document        │
+                    │   scikit-learn docs         │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │          Chunking           │
+                    │    1000 chars / 150         │
+                    │         overlap             │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │         Embeddings          │
+                    │ all-MiniLM-L6-v2            │
+                    │      384 dimensions         │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │      Vector Storage         │
+                    │           .npy              │
+                    └──────────────┬──────────────┘
+                                   │
+                                   │
+User Question ────────────────► Query
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │   Context-aware Retrieval  │
+                    │                             │
+                    │ Question + recent memory   │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │       Top-K Context         │
+                    │        Top 3 chunks         │
+                    └──────────────┬──────────────┘
+                                   │
+                                   │
+Conversation Memory ────────────────┤
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │           Ollama            │
+                    │       llama3.2:3b           │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                              Answer
+                                   │
+                                   ▼
+                         Conversation Memory
 ```
 
 ## Technologies
@@ -113,11 +142,8 @@ genAI_RAG/
 │   └── test_retrieval.py
 │
 ├── requirements.txt
-├── README.md
 └── .gitignore
 ```
-
-> Note: `data/processed/` contains generated files and is intentionally excluded from Git.
 
 ## Installation
 
@@ -148,7 +174,7 @@ Verify that the model is available:
 ollama list
 ```
 
-## Running the Pipeline
+## Preparing the Knowledge Base
 
 ### 1. Load the document
 
@@ -178,51 +204,97 @@ sentence-transformers/all-MiniLM-L6-v2
 
 Each embedding has 384 dimensions.
 
-### 4. Run the RAG pipeline
+## Running the Chatbot
+
+Start the chatbot with:
 
 ```powershell
 python src\retrieval\rag_pipeline.py
 ```
 
-The system will ask:
+The system starts an interactive conversation:
 
 ```text
-Enter your question:
+Local RAG Chatbot
+Type 'end' to exit.
+
+You: What is a pipeline in scikit-learn?
 ```
 
-Example:
+Follow-up questions can refer to previous messages:
 
 ```text
-What is a pipeline in scikit-learn?
-```
+You: What is a pipeline in scikit-learn?
 
-The pipeline retrieves the three most relevant chunks and sends them to the local LLM.
-
-## Example
-
-### Question
-
-```text
-What is a pipeline in scikit-learn?
-```
-
-### Retrieved Context
-
-The system retrieves documentation describing pipelines as a combination of transformers and estimators.
-
-### Generated Answer
-
-```text
+Assistant:
 A pipeline in scikit-learn is a single unifying object that combines
-transformers (pre-processors) and estimators (predictors) into a single unit,
-allowing the same API as a regular estimator to be used.
+transformers and estimators.
+
+You: Why is it useful?
+
+Assistant:
+Pipelines are useful because they help prevent data leakage and provide
+a consistent API for fitting and prediction.
 ```
 
-The answer is generated using the retrieved documentation as context.
+Type `end` to terminate the conversation.
+
+## Conversation Memory
+
+The chatbot maintains a limited conversation history.
+
+The current configuration stores the most recent five conversation turns:
+
+```python
+MAX_MEMORY_TURNS = 5
+```
+
+Conversation memory is used in two places.
+
+### 1. Context-aware retrieval
+
+For a follow-up question such as:
+
+```text
+Why is it useful?
+```
+
+the system combines the question with recent conversation history before performing semantic retrieval.
+
+This allows the retrieval system to understand what "it" refers to.
+
+For example:
+
+```text
+Previous conversation:
+User: What is a pipeline in scikit-learn?
+Assistant: A pipeline combines transformers and estimators.
+
+Current question:
+Why is it useful?
+```
+
+This significantly improves retrieval for follow-up questions.
+
+### 2. Answer generation
+
+The conversation history is also included in the prompt sent to Ollama.
+
+The model receives:
+
+```text
+Previous conversation
+        +
+Retrieved documentation
+        +
+Current question
+```
+
+The model is instructed to use only this information when generating the answer.
 
 ## Retrieval
 
-The current implementation uses cosine similarity through normalized embeddings:
+The system uses semantic similarity with normalized embeddings:
 
 ```text
 similarity = embedding_matrix · query_embedding
@@ -230,35 +302,43 @@ similarity = embedding_matrix · query_embedding
 
 The three highest-scoring chunks are retrieved.
 
-The retrieval process therefore consists of:
+The retrieval process is:
 
 ```text
-Query
-  ↓
+User Question
+      ↓
+Context-aware Query
+      ↓
 Query Embedding
-  ↓
+      ↓
 Similarity Calculation
-  ↓
+      ↓
 Ranking
-  ↓
+      ↓
 Top 3 Chunks
 ```
 
+The system uses brute-force similarity search with NumPy.
+
 ## Generation
 
-The retrieved chunks are inserted into a prompt containing the instruction:
+The retrieved chunks and recent conversation history are inserted into a prompt containing the instruction:
 
 ```text
-Use ONLY the provided context to answer the question.
+Use ONLY the provided context and previous conversation to answer the question.
 Do not use outside knowledge.
 ```
 
-This reduces the likelihood of the LLM answering from its general knowledge instead of the retrieved documentation.
-
-If the answer cannot be found in the provided context, the model is instructed to respond:
+If the answer cannot be found in the provided information, the model is instructed to respond:
 
 ```text
 I cannot answer this based on the provided documentation.
+```
+
+The answer is generated locally through Ollama using:
+
+```text
+llama3.2:3b
 ```
 
 ## Testing
@@ -269,15 +349,17 @@ Run the automated tests with:
 python -m pytest tests
 ```
 
-Current tests verify:
+The current test suite verifies:
 
 * The number of chunks matches the number of embeddings.
 * Embeddings have the expected 384-dimensional representation.
+* Retrieval queries work without conversation memory.
+* Retrieval queries incorporate conversation memory.
 
 Expected result:
 
 ```text
-2 passed
+4 passed
 ```
 
 ## Current Limitations
@@ -290,12 +372,11 @@ Current limitations include:
 * Embeddings are stored in a NumPy file rather than a dedicated vector database.
 * Retrieval uses brute-force similarity search.
 * The number of retrieved chunks is fixed to 3.
-* There is no conversational memory.
-* There is no web search.
+* Conversation memory is limited to the current runtime session.
+* Conversation history is not persisted between sessions.
 * There is no graphical user interface.
+* There is no source citation in the generated answer.
 * The local LLM can still produce an answer that is more general than the retrieved context.
-
-These limitations provide potential directions for future development.
 
 ## Future Improvements
 
@@ -309,9 +390,11 @@ Possible extensions include:
 * Retrieval evaluation metrics.
 * Answer evaluation.
 * Source citations in generated answers.
+* Persistent conversation memory.
 * Streamlit user interface.
-* Conversation history.
+* Conversation history storage.
 * Improved prompt engineering.
+* Retrieval score thresholds for detecting insufficient context.
 
 ## Privacy and Cost
 
@@ -340,11 +423,15 @@ Embedding generation
         ↓
 Semantic retrieval
         ↓
+Context-aware retrieval
+        ↓
+Conversation memory
+        ↓
 Context construction
         ↓
 Local LLM generation
         ↓
-Interactive answer
+Interactive chatbot
         ↓
 Automated tests
 ```
