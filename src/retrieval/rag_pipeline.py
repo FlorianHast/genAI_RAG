@@ -12,7 +12,7 @@ LLM_NAME = "llama3.2:3b"
 CHUNKS_PATH = Path("data/processed/scikit_learn_chunks.txt")
 EMBEDDINGS_PATH = Path("data/processed/scikit_learn_embeddings.npy")
 
-TOP_K = 3
+TOP_K = 5
 MAX_MEMORY_TURNS = 5
 
 
@@ -77,6 +77,16 @@ def format_memory(memory):
         f"User: {user_message}\nAssistant: {assistant_message}"
         for user_message, assistant_message in memory[-MAX_MEMORY_TURNS:]
     )
+
+
+def extract_source(chunk):
+    """Extract the source filename from a chunk."""
+
+    for line in chunk.splitlines():
+        if line.startswith("SOURCE:"):
+            return line.replace("SOURCE:", "", 1).strip()
+
+    return "Unknown source"
 
 
 def generate_answer(query, retrieved_chunks, memory):
@@ -179,8 +189,18 @@ def main():
             memory,
         )
 
+        sources = []
+        for _, _, chunk in retrieved_chunks:
+            source = extract_source(chunk)
+            if source not in sources:
+                sources.append(source)
+
         print("\nAssistant:")
         print(answer)
+
+        print("\nSources:")
+        for source in sources:
+            print(f"- {source}")
 
         memory.append((query, answer))
 
